@@ -1,0 +1,42 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma Schema — Uptime Monitor
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTE: SQLite does not support native enums. errorType is stored as String?
+// Valid values: 'timeout' | 'dns_failure' | 'connection_refused' | 'bad_status'
+// null means the check succeeded.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Monitor {
+  id                   String   @id @default(cuid())
+  name                 String
+  url                  String
+  createdAt            DateTime @default(now())
+  isActive             Boolean  @default(true)
+  currentStatus        Boolean  @default(true)
+  noOfConsecutiveFails Int      @default(0)
+
+  checks Check[]
+}
+
+model Check {
+  id           String   @id @default(cuid())
+  monitorId    String
+  monitor      Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  statusCode   Int?
+  responseTime Int?
+  isUp         Boolean
+  // null on success; 'timeout' | 'dns_failure' | 'connection_refused' | 'bad_status' on failure
+  errorType    String?
+  checkedAt    DateTime @default(now())
+
+  @@index([monitorId, checkedAt(sort: Desc)])
+}

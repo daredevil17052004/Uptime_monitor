@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Uptime Monitor — Docker Compose
+#
+# Services:
+#   backend   Node.js + Express + Prisma/SQLite  → internal port 3001
+#   frontend  Vite build served by nginx         → published port 80
+#
+# Architecture:
+#   Browser → nginx:80 → /api/* → backend:3001 (reverse proxy)
+#                      → /*     → static React SPA
+#
+# Usage:
+#   docker compose up --build          # build & start everything
+#   docker compose up --build -d       # detached mode
+#   docker compose down -v             # stop + remove volumes (wipes DB)
+#   docker compose logs -f backend     # tail backend logs
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend ─────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: uptime-backend
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # SQLite DB lives in the named volume so it survives container restarts.
+      DATABASE_URL: "file:/data/uptime.db"
+
+    volumes:
+      # Named volume for SQLite persistence.
+      # Only the DB file is here — migrations are baked into the image.
+      - uptime_data:/data
+
+    # Expose 3001 to the host for direct access / debugging.
+    # Remove this port mapping in production if you only want nginx access.
+    ports:
+      - "3001:3001"
+
+    networks:
+      - uptime-net
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Frontend ────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the Vite bundle at build time.
+        # /api → nginx proxies to http://backend:3001/api
+        VITE_API_BASE: /api
+
+    container_name: uptime-frontend
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      backend:
+        # Wait for the backend to pass its healthcheck before starting nginx.
+        condition: service_healthy
+
+    networks:
+      - uptime-net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  uptime_data:
+    driver: local
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  uptime-net:
+    driver: bridge
