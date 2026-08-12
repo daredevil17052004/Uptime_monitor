@@ -2,6 +2,8 @@
 
 Real-time HTTP uptime monitoring with a Node.js/Express backend, React dashboard, and a 60-second cron scheduler. Runs fully in Docker — one command.
 
+![Uptime Monitor Dashboard](C:\Users\Ansh Sharma\.gemini\antigravity-ide\brain\bc628e5f-0b85-4243-8998-09620d9f375a\dashboard_colors_1786470488037.png)
+
 ---
 
 ## 1. Setup
